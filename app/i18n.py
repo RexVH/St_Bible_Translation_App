@@ -1,7 +1,7 @@
 # app/i18n.py
 
 UI_STRINGS = {
-    "English": {
+    "en": {
         "load": "Load",
         "selection": "Selection",
         "language": "Language",
@@ -28,7 +28,7 @@ UI_STRINGS = {
         "explanation": "Explanation",
         "chat_soon": "Chat (Coming soon...)",
     },
-    "German": {
+    "de": {
         "load": "Laden",
         "selection": "Auswahl",
         "language": "Sprache",
@@ -60,4 +60,4 @@ UI_STRINGS = {
 
 def t(state, key: str) -> str:
     lang = state.get("active_language", "en")
-    return UI_STRINGS.get(lang, UI_STRINGS["English"]).get(key, key)
+    return UI_STRINGS.get(lang, UI_STRINGS["en"]).get(key, key)
