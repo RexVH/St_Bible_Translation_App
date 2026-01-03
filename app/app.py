@@ -197,13 +197,13 @@ if meta:
     if img_url:
         c_img, c_btn = st.columns([6, 1])
         with c_img:
-            st.image(img_url, use_container_width=True)  # height control later
+            st.image(img_url, width='stretch')  # height control later
         with c_btn:
             if st.button(t(st.session_state, "view_image")):
                 # Streamlit dialog/modal supported in recent versions
                 try:
                     with st.dialog(one_line or f"{book_name} {chapter_num}"):
-                        st.image(img_url, use_container_width=True)
+                        st.image(img_url, width='stretch')
                 except Exception:
                     st.info("Modal not available in this Streamlit version.")
     # Summary paragraph always visible
@@ -286,12 +286,12 @@ with nav3:
 with nav4:
     st.button(t(st.session_state, "nav_next"), on_click=go_next_chapter)
 
-# Quick toggles
-tog1, tog2 = st.columns([1, 1])
-with tog1:
-    st.checkbox(t(st.session_state, "show_verses"), key="show_verse_numbers")
-with tog2:
-    st.checkbox(t(st.session_state, "highlight_vocab"), key="highlight_vocab")
+# # Quick toggles
+# tog1, tog2 = st.columns([1, 1])
+# with tog1:
+#     st.checkbox(t(st.session_state, "show_verses"), key="show_verse_numbers")
+# with tog2:
+#     st.checkbox(t(st.session_state, "highlight_vocab"), key="highlight_vocab")
 
 st.divider()
 if DEV:
@@ -331,6 +331,7 @@ highlight_vocab = st.toggle(
 
 # --- Data fetch
 verses = db_repo.get_verses(
+    db_path=st.session_state.db_path,
     bible_id=st.session_state.active_bible_id,
     book_id=st.session_state.active_book_id,
     chapter=st.session_state.active_chapter,
@@ -338,6 +339,7 @@ verses = db_repo.get_verses(
 )
 
 vocab_json = db_repo.get_vocab_json(
+    db_path=st.session_state.db_path,
     bible_id=st.session_state.active_bible_id,
     book_id=st.session_state.active_book_id,
     chapter=st.session_state.active_chapter,
@@ -345,6 +347,7 @@ vocab_json = db_repo.get_vocab_json(
 )
 
 teaching_notes = db_repo.get_teaching_notes(
+    db_path=st.session_state.db_path,
     bible_id=st.session_state.active_bible_id,
     book_id=st.session_state.active_book_id,
     chapter=st.session_state.active_chapter,
@@ -362,4 +365,4 @@ render_text_block(
     highlight_vocab=highlight_vocab,
 )
 
-
+st.info("How does this look now now?")
