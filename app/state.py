@@ -1,5 +1,6 @@
 # app/state.py
-import streamlit as st
+import os, streamlit as st
+from app import db_repo
 
 
 def init_state():
@@ -7,8 +8,10 @@ def init_state():
         return
 
     st.session_state.initialized = True
-    st.session_state.db_path = "multi_bibles.db"
-
+    st.session_state.db_path = os.getenv(
+    "BIBLE_DB_PATH", "data/multi_bibles.db"
+        )
+    
     # Draft (sidebar)
     st.session_state.draft_language = "English"
     st.session_state.draft_bible_id = None
@@ -29,6 +32,8 @@ def init_state():
 
     # Audio
     st.session_state.audio_speed = 1.0
+    st.session_state.kw_selected = None
+
 
     reset_quiz()
     reset_feedback()
@@ -70,13 +75,67 @@ def apply_load():
 
 
 def go_next_chapter():
-    st.session_state.active_chapter += 1
+    """Next chapter within available chapters for the active (bible, level, book)."""
+    db_path = st.session_state.db_path
+    bible_id = st.session_state.active_bible_id
+    level = st.session_state.active_level
+    book_id = st.session_state.active_book_id
+
+    chapters = db_repo.get_available_chapters(db_path, int(bible_id), level, int(book_id))
+    if not chapters:
+        return
+
+    cur = int(st.session_state.active_chapter)
+    if cur not in chapters:
+        st.session_state.active_chapter = chapters[0]
+    else:
+        idx = chapters.index(cur)
+        if idx < len(chapters) - 1:
+            st.session_state.active_chapter = chapters[idx + 1]
+        # else: do nothing (end of book)
+
     reset_quiz()
     reset_feedback()
 
 
 def go_prev_chapter():
-    if st.session_state.active_chapter > 1:
-        st.session_state.active_chapter -= 1
-        reset_quiz()
-        reset_feedback()
+    """Previous chapter within available chapters for the active (bible, level, book)."""
+    db_path = st.session_state.db_path
+    bible_id = st.session_state.active_bible_id
+    level = st.session_state.active_level
+    book_id = st.session_state.active_book_id
+
+    chapters = db_repo.get_available_chapters(db_path, int(bible_id), level, int(book_id))
+    if not chapters:
+        return
+
+    cur = int(st.session_state.active_chapter)
+    if cur not in chapters:
+        st.session_state.active_chapter = chapters[0]
+    else:
+        idx = chapters.index(cur)
+        if idx > 0:
+            st.session_state.active_chapter = chapters[idx - 1]
+        # else: do nothing (start of book)
+
+    reset_quiz()
+    reset_feedback()
+
+def on_active_book_change():
+    """When active book changes via header dropdown, clamp chapter and reset quiz/feedback."""
+    db_path = st.session_state.db_path
+    bible_id = st.session_state.active_bible_id
+    level = st.session_state.active_level
+    book_id = st.session_state.active_book_id
+
+    chapters = db_repo.get_available_chapters(db_path, int(bible_id), level, int(book_id))
+    st.session_state.active_chapter = db_repo.clamp_to_available_chapter(chapters, int(st.session_state.active_chapter))
+
+    reset_quiz()
+    reset_feedback()
+
+
+def on_active_chapter_change():
+    """When active chapter changes via header dropdown, reset quiz/feedback."""
+    reset_quiz()
+    reset_feedback()

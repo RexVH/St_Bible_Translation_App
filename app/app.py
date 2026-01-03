@@ -16,6 +16,8 @@ from app.state import (
 from app.i18n import t
 from app import db_repo
 from app.components.audio import render_audio_player
+from app.components.vocab import render_key_words_strip
+
 
 DEV = False
 
@@ -293,3 +295,23 @@ with tog2:
 st.divider()
 if DEV:
     st.info("Header + hero are now DB-driven...")
+
+# --- VOCAB DISPLAY AND KEY WORDS STRIP (first 10) ---
+vocab_json = db_repo.get_vocab_json(
+    db_path,
+    int(st.session_state.active_bible_id),
+    st.session_state.active_level,
+    int(st.session_state.active_book_id),
+    int(st.session_state.active_chapter),
+)
+
+render_key_words_strip(
+    vocab_json=vocab_json,
+    title=t(st.session_state, "key_words"),
+    limit=10,
+    per_row=5,
+    state_key_selected="kw_selected",
+)
+
+st.divider()
+
