@@ -4,11 +4,83 @@ import os
 import streamlit as st
 from app import db_repo
 
+LEVELS = ["A1", "A2", "B1", "B2", "Source"]
+
+
+def _ensure_defaults():
+    st.session_state.db_path = st.session_state.get(
+        "db_path", os.getenv("BIBLE_DB_PATH", "data/multi_bibles.db")
+    )
+
+    langs = db_repo.get_languages(st.session_state.db_path) or ["English"]
+    if st.session_state.get("draft_language") not in langs:
+        st.session_state.draft_language = langs[0]
+
+    bibles = db_repo.get_bibles_for_language(
+        st.session_state.db_path, st.session_state.draft_language
+    )
+    bible_ids = [int(b["id"]) for b in bibles]
+    default_bible_id = bible_ids[0] if bible_ids else None
+    if st.session_state.get("draft_bible_id") not in bible_ids:
+        st.session_state.draft_bible_id = default_bible_id
+
+    if st.session_state.get("draft_level") not in LEVELS:
+        st.session_state.draft_level = "A1"
+
+    books = db_repo.get_books_for_language(
+        st.session_state.db_path, st.session_state.draft_language
+    )
+    book_ids = [int(b["id"]) for b in books]
+    default_book_id = book_ids[0] if book_ids else 1
+    if st.session_state.get("draft_book_id") not in book_ids:
+        st.session_state.draft_book_id = default_book_id
+
+    if st.session_state.get("draft_bible_id") is None:
+        st.session_state.draft_chapter = 1
+    else:
+        chapters = db_repo.get_available_chapters(
+            st.session_state.db_path,
+            int(st.session_state.draft_bible_id),
+            st.session_state.draft_level,
+            int(st.session_state.draft_book_id),
+        )
+        if not chapters:
+            st.session_state.draft_chapter = 1
+        else:
+            desired = int(st.session_state.get("draft_chapter", chapters[0]))
+            st.session_state.draft_chapter = db_repo.clamp_to_available_chapter(
+                chapters, desired
+            )
+
+    st.session_state.setdefault("active_language", st.session_state.draft_language)
+    st.session_state.setdefault("active_bible_id", st.session_state.draft_bible_id)
+    st.session_state.setdefault("active_level", st.session_state.draft_level)
+    st.session_state.setdefault("active_book_id", st.session_state.draft_book_id)
+    st.session_state.setdefault("active_chapter", st.session_state.draft_chapter)
+    st.session_state.setdefault("show_verse_numbers", True)
+    st.session_state.setdefault("highlight_vocab", False)
+    st.session_state.setdefault("audio_speed", 1.0)
+    st.session_state.setdefault("quiz_key", None)
+    st.session_state.setdefault("quiz_questions", [])
+    st.session_state.setdefault("quiz_index", 0)
+    st.session_state.setdefault("quiz_correct", 0)
+    st.session_state.setdefault("quiz_incorrect", 0)
+    st.session_state.setdefault("quiz_show_hint", False)
+    st.session_state.setdefault("quiz_show_explanation", False)
+    st.session_state.setdefault("quiz_last_choice", None)
+    st.session_state.setdefault("quiz_last_was_correct", None)
+    st.session_state.setdefault("feedback_key", None)
+    st.session_state.setdefault("feedback_vote", None)
+    st.session_state.setdefault("feedback_comment", "")
+    st.session_state.setdefault("feedback_submitted", False)
+
 def init_state():
     if st.session_state.get("initialized"):
+        _ensure_defaults()
         return
 
     st.session_state.initialized = True
+
     st.session_state.db_path = os.getenv("BIBLE_DB_PATH", "data/multi_bibles.db")
 
     # Pull real languages from DB
