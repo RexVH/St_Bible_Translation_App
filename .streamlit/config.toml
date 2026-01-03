@@ -3,3 +3,11 @@ fastReruns = false
 
 [client]
 showErrorDetails = true
+
+[server]
+address = "127.0.0.1"
+port = 8501
+
+[server]
+fileWatcherType = "none"
+runOnSave = false

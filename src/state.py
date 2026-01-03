@@ -2,17 +2,18 @@
 
 import os
 import streamlit as st
-from app import db_repo
+import db_repo
 
 LEVELS = ["A1", "A2", "B1", "B2", "Source"]
+# st.session_state.db_path = st.session_state.get(
+#         "db_path", os.getenv("BIBLE_DB_PATH", "data/multi_bibles.db")
+#     )
+st.session_state.db_path = os.getenv("BIBLE_DB_PATH", "C:/Temp/multi_bibles.db")
+
 
 
 def _ensure_defaults():
-    st.session_state.db_path = st.session_state.get(
-        "db_path", os.getenv("BIBLE_DB_PATH", "data/multi_bibles.db")
-    )
-
-    langs = db_repo.get_languages(st.session_state.db_path) or ["English"]
+    langs = db_repo.get_languages(st.session_state.db_path) or ["en"]
     if st.session_state.get("draft_language") not in langs:
         st.session_state.draft_language = langs[0]
 
@@ -80,9 +81,7 @@ def init_state():
         return
 
     st.session_state.initialized = True
-
-    st.session_state.db_path = os.getenv("BIBLE_DB_PATH", "data/multi_bibles.db")
-
+  
     # Pull real languages from DB
     langs = db_repo.get_languages(st.session_state.db_path)
     if not langs:

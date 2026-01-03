@@ -15,7 +15,8 @@ def connect(db_path: str) -> sqlite3.Connection:
     SQLite connection suitable for Streamlit reruns.
     NOTE: Callers should close the connection (use `with connect(...) as conn:`).
     """
-    conn = sqlite3.connect(db_path, check_same_thread=False, timeout=1.0)
+    uri = f"file:{db_path}?mode=ro"
+    conn = sqlite3.connect(uri, uri=True, check_same_thread=False, timeout=1.0)
     conn.row_factory = sqlite3.Row
     return conn
 

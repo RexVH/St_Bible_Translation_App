@@ -2,7 +2,7 @@
 import time, streamlit as st
 st.set_page_config(layout="wide")
 
-from app.state import (
+from state import (
     init_state,
     apply_load,
     go_next_chapter,
@@ -13,15 +13,17 @@ from app.state import (
     on_active_book_change,
     on_active_chapter_change,
 )
-from app.i18n import t
-from app import db_repo
-# from app.components.audio import render_audio_player
+from i18n import t
+import db_repo
+from components.image import banner_with_overlay
+from components.audio import render_audio_player
 # from app.components.vocab import render_key_words_strip
 # from app.components.text import render_text_block
 
 init_state()
 
 db_path = st.session_state.db_path
+print(db_path)
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -35,7 +37,8 @@ with st.sidebar:
     if st.session_state.get("draft_language") not in languages:
         st.session_state.draft_language = languages[0]
 
-    st.selectbox(t(st.session_state, "language"), languages, key="draft_language")
+    st.selectbox(t(st.session_state, "language"), languages, key="draft_language",
+        on_change=on_draft_language_change,)
 
     # --- Bible ---
     bibles = db_repo.get_bibles_for_language(db_path, st.session_state.draft_language)
@@ -142,17 +145,27 @@ if st.session_state.active_bible_id is not None:
 if meta:
     # One-line summary as headline
     one_line = meta.get("summary_one_line") or ""
-    if one_line.strip():
-        st.markdown(f"### {one_line}")
 
     # Show image
     img_url = meta.get("image_url")
     if img_url:
-        st.image(img_url, width="stretch")
+        html_text = banner_with_overlay(
+            image_ref=img_url,                 # URL from DB
+            title=f"{book_name} {chapter_num}",
+            subtitle=one_line,                     # keep paragraph visible below (your preference)
+            banner_height_px=260,
+        )
+        print(html_text)
+        import streamlit.components.v1 as comp
+        comp.html(html_text, height=280)
 
-        with st.expander(t(st.session_state, "view_image")):
-            st.image(img_url, width="stretch")
+    if st.button(t(st.session_state, "view_image")):
+        @st.dialog(f"{book_name} {chapter_num}")
+        def _dlg():
+            st.image(img_url, use_container_width=True, caption="Right-click to open in a new tab or window.")
+        _dlg()
 
+        
     # Summary paragraph always visible
     para = meta.get("summary_paragraph") or ""
     if para.strip():
@@ -161,17 +174,17 @@ if meta:
 else:
     st.warning("No chapter metadata found for this selection (yet).")
 
-# # --- AUDIO BLOCK ---
-# audio_url = meta.get("audio_url") if meta else None
-# render_audio_player(
-#     audio_url=audio_url,
-#     speed_key="audio_speed",
-#     label=t(st.session_state, "audio"),
-#     speed_label=t(st.session_state, "audio_speed"),
-#     download_label=t(st.session_state, "download_mp3"),
-# )
+# --- AUDIO BLOCK ---
+audio_url = meta.get("audio_url") if meta else None
+render_audio_player(
+    audio_url=audio_url,
+    speed_key="audio_speed",
+    label=t(st.session_state, "audio"),
+    speed_label=t(st.session_state, "audio_speed"),
+    download_label=t(st.session_state, "download_mp3"),
+)
 
-# st.divider()
+st.divider()
 
 # # Navigation + quick settings row
 # nav1, nav2, nav3, nav4 = st.columns([1, 3, 3, 1])
