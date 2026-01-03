@@ -316,3 +316,16 @@ def clamp_to_available_chapter(chapters: list[int], desired: int) -> int:
     # choose nearest lower, else first
     lower = [c for c in chapters if c <= desired]
     return max(lower) if lower else chapters[0]
+
+@lru_cache(maxsize=512)
+def get_bible_display_name(db_path: str, bible_id: int) -> Optional[str]:
+    with connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT name, code FROM bibles WHERE id = ? LIMIT 1",
+            (int(bible_id),),
+        ).fetchone()
+    if not row:
+        return None
+    name = row["name"] or ""
+    code = row["code"] or ""
+    return f"{name} ({code})".strip() if code else name

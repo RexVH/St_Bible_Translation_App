@@ -1,12 +1,6 @@
 # app/app.py
 import streamlit as st
 
-from app.state import init_state, apply_load, go_next_chapter, go_prev_chapter
-from app.i18n import t
-
-st.set_page_config(layout="wide")
-init_state()
-
 from app.state import (
     init_state,
     apply_load,
@@ -15,9 +9,31 @@ from app.state import (
     on_draft_language_change,
     on_draft_bible_level_book_change,
     on_draft_book_change,
+    on_active_book_change,
+    on_active_chapter_change,
 )
+
 from app.i18n import t
 from app import db_repo
+from app.components.audio import render_audio_player
+
+DEV = False
+
+def _apply_active_book_label(book_options: dict):
+    """
+    Maps the selected label to active_book_id and triggers on_active_book_change().
+    """
+    label = st.session_state.get("_active_book_label")
+    if label in book_options:
+        st.session_state.active_book_id = int(book_options[label])
+    on_active_book_change()
+
+def _apply_draft_bible_label(bible_options: dict):
+    label = st.session_state.get("_draft_bible_label")
+    if label in bible_options:
+        st.session_state.draft_bible_id = int(bible_options[label])
+    on_draft_bible_level_book_change()
+
 
 st.set_page_config(layout="wide")
 init_state()
@@ -53,15 +69,16 @@ with st.sidebar:
             cur_id = ids[0]
         idx = ids.index(cur_id)
 
+        # Ensure the label key is aligned to the current bible id
+        st.session_state["_draft_bible_label"] = labels[idx]
+
         st.selectbox(
             t(st.session_state, "bible"),
             labels,
             index=idx,
             key="_draft_bible_label",
-            on_change=on_draft_bible_level_book_change,
+            on_change=lambda: _apply_draft_bible_label(bible_options),
         )
-        # map label -> id into the real state key
-        st.session_state.draft_bible_id = bible_options[st.session_state._draft_bible_label]
 
     # Level
     st.selectbox(
@@ -85,6 +102,8 @@ with st.sidebar:
             st.session_state.draft_book_id = book_ids[0]
             cur_book = book_ids[0]
         book_idx = book_ids.index(cur_book)
+
+        st.session_state["_active_book_label"] = book_labels[book_idx]
 
         st.selectbox(
             t(st.session_state, "book"),
@@ -139,28 +158,138 @@ with st.sidebar:
     st.link_button(t(st.session_state, "contact_dev"), "mailto:rex@ninefourecho.com")
 
 # --- MAIN ---
-st.title(
-    f"{st.session_state.active_language} · "
-    f"{st.session_state.active_level} · "
-    f"Book {st.session_state.active_book_id}, "
-    f"Chapter {st.session_state.active_chapter}"
+db_path = st.session_state.db_path
+
+# Resolve display names from DB (localized where applicable)
+if st.session_state.active_bible_id is None:
+    st.error("No Bible is available for the current language selection. Choose a different language in the sidebar.")
+    st.stop()
+
+bible_name = db_repo.get_bible_display_name(db_path, int(st.session_state.active_bible_id)) if st.session_state.active_bible_id else "—"
+book_name = db_repo.get_book_name(db_path, st.session_state.active_language, int(st.session_state.active_book_id)) or f"Book {st.session_state.active_book_id}"
+chapter_num = int(st.session_state.active_chapter)
+
+# Orientation header (localized by content + UI strings)
+st.markdown(f"## {book_name} {chapter_num} — {bible_name} — {st.session_state.active_level}")
+
+# Hero block (DB-driven, safe if missing)
+meta = None
+if st.session_state.active_bible_id is not None:
+    meta = db_repo.get_chapter_meta(
+        db_path,
+        int(st.session_state.active_bible_id),
+        st.session_state.active_level,
+        int(st.session_state.active_book_id),
+        int(st.session_state.active_chapter),
+    )
+
+if meta:
+    # One-line summary as headline
+    one_line = meta.get("summary_one_line") or ""
+    if one_line.strip():
+        st.markdown(f"### {one_line}")
+
+    # Image (if present)
+    img_url = meta.get("image_url")
+    if img_url:
+        c_img, c_btn = st.columns([6, 1])
+        with c_img:
+            st.image(img_url, use_container_width=True)  # height control later
+        with c_btn:
+            if st.button(t(st.session_state, "view_image")):
+                # Streamlit dialog/modal supported in recent versions
+                try:
+                    with st.dialog(one_line or f"{book_name} {chapter_num}"):
+                        st.image(img_url, use_container_width=True)
+                except Exception:
+                    st.info("Modal not available in this Streamlit version.")
+    # Summary paragraph always visible
+    para = meta.get("summary_paragraph") or ""
+    if para.strip():
+        st.write(para)
+
+else:
+    st.warning("No chapter metadata found for this selection (yet).")
+
+# --- AUDIO BLOCK ---
+audio_url = meta.get("audio_url") if meta else None
+render_audio_player(
+    audio_url=audio_url,
+    speed_key="audio_speed",
+    label=t(st.session_state, "audio"),
+    speed_label=t(st.session_state, "audio_speed"),
+    download_label=t(st.session_state, "download_mp3"),
 )
 
-col1, col2, col3 = st.columns([1, 3, 1])
+st.divider()
 
-with col1:
+# Navigation + quick settings row
+nav1, nav2, nav3, nav4 = st.columns([1, 3, 3, 1])
+
+with nav1:
     st.button(t(st.session_state, "nav_prev"), on_click=go_prev_chapter)
 
-with col3:
+# Active book dropdown (localized names)
+books = db_repo.get_books_for_language(db_path, st.session_state.active_language)
+book_options = {b["name"]: int(b["id"]) for b in books}
+book_labels = list(book_options.keys())
+book_ids = list(book_options.values())
+
+# Guard: if active_book_id not valid, clamp to first
+cur_book = int(st.session_state.active_book_id)
+if book_ids and cur_book not in book_ids:
+    st.session_state.active_book_id = book_ids[0]
+    cur_book = book_ids[0]
+
+with nav2:
+    if book_labels:
+        book_idx = book_ids.index(cur_book)
+        st.selectbox(
+            t(st.session_state, "book"),
+            book_labels,
+            index=book_idx,
+            key="_active_book_label",
+            on_change=lambda: _apply_active_book_label(book_options),
+        )
+    else:
+        st.selectbox(t(st.session_state, "book"), [book_name], disabled=True)
+
+# Active chapter dropdown depends on active selection
+chapters = []
+if st.session_state.active_bible_id is not None:
+    chapters = db_repo.get_available_chapters(
+        db_path,
+        int(st.session_state.active_bible_id),
+        st.session_state.active_level,
+        int(st.session_state.active_book_id),
+    )
+if not chapters:
+    chapters = [1]
+
+# Clamp active chapter to available list
+st.session_state.active_chapter = db_repo.clamp_to_available_chapter(chapters, int(st.session_state.active_chapter))
+cur_ch = int(st.session_state.active_chapter)
+
+with nav3:
+    chap_idx = chapters.index(cur_ch)
+    st.selectbox(
+        t(st.session_state, "chapter"),
+        chapters,
+        index=chap_idx,
+        key="active_chapter",
+        on_change=on_active_chapter_change,
+    )
+
+with nav4:
     st.button(t(st.session_state, "nav_next"), on_click=go_next_chapter)
 
-st.checkbox(
-    t(st.session_state, "show_verses"),
-    key="show_verse_numbers",
-)
-st.checkbox(
-    t(st.session_state, "highlight_vocab"),
-    key="highlight_vocab",
-)
+# Quick toggles
+tog1, tog2 = st.columns([1, 1])
+with tog1:
+    st.checkbox(t(st.session_state, "show_verses"), key="show_verse_numbers")
+with tog2:
+    st.checkbox(t(st.session_state, "highlight_vocab"), key="highlight_vocab")
 
-st.info("UI skeleton running. Ready to wire DB + components.")
+st.divider()
+if DEV:
+    st.info("Header + hero are now DB-driven...")
