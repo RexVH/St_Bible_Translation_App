@@ -17,6 +17,7 @@ from app.i18n import t
 from app import db_repo
 from app.components.audio import render_audio_player
 from app.components.vocab import render_key_words_strip
+from app.components.text import render_text_block
 
 
 DEV = False
@@ -313,5 +314,52 @@ render_key_words_strip(
     state_key_selected="kw_selected",
 )
 
-st.divider()
+st.divider() # ---- End Vocab
+
+# --- START Controls (wherever you’re keeping reader controls; v1 can live above the text)
+show_verse_numbers = st.toggle(
+    t(st.session_state, "show_verse_numbers"),
+    value=st.session_state.get("show_verse_numbers", True),
+    key="show_verse_numbers",
+)
+
+highlight_vocab = st.toggle(
+    t(st.session_state, "highlight_vocab"),
+    value=st.session_state.get("highlight_vocab", False),
+    key="highlight_vocab",
+)
+
+# --- Data fetch
+verses = db_repo.get_verses(
+    bible_id=st.session_state.active_bible_id,
+    book_id=st.session_state.active_book_id,
+    chapter=st.session_state.active_chapter,
+    level=st.session_state.active_level,
+)
+
+vocab_json = db_repo.get_vocab_json(
+    bible_id=st.session_state.active_bible_id,
+    book_id=st.session_state.active_book_id,
+    chapter=st.session_state.active_chapter,
+    level=st.session_state.active_level,
+)
+
+teaching_notes = db_repo.get_teaching_notes(
+    bible_id=st.session_state.active_bible_id,
+    book_id=st.session_state.active_book_id,
+    chapter=st.session_state.active_chapter,
+    level=st.session_state.active_level,
+)
+
+notes_by_verse_start = db_repo.group_teaching_notes_by_verse_start(teaching_notes)
+
+# --- Render
+render_text_block(
+    verses=verses,
+    vocab_json=vocab_json,
+    notes_by_verse_start=notes_by_verse_start,
+    show_verse_numbers=show_verse_numbers,
+    highlight_vocab=highlight_vocab,
+)
+
 
