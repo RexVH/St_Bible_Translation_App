@@ -1,8 +1,6 @@
 # app/app.py
 import time, streamlit as st
 st.set_page_config(layout="wide")
-t0 = time.time()
-st.write("✅ checkpoint A: top of app.py", round(time.time() - t0, 3))
 
 from app.state import (
     init_state,
@@ -15,7 +13,6 @@ from app.state import (
     on_active_book_change,
     on_active_chapter_change,
 )
-st.write("✅ checkpoint B: after init_state()", round(time.time() - t0, 3))
 from app.i18n import t
 from app import db_repo
 # from app.components.audio import render_audio_player
@@ -23,21 +20,17 @@ from app import db_repo
 # from app.components.text import render_text_block
 
 init_state()
-st.write("✅ checkpoint C: about to call get_available_chapters()", round(time.time() - t0, 3))
 
 db_path = st.session_state.db_path
 
 # --- SIDEBAR ---
 with st.sidebar:
     st.header(t(st.session_state, "selection"))
-    st.write("✅ checkpoint D: about to call get_available_chapters()", round(time.time() - t0, 3))
     # --- Language ---
     languages = db_repo.get_languages(db_path)
     if not languages:
         st.error("No languages available.")
         st.stop()
-    
-    st.write("✅ checkpoint E: about to call get_available_chapters()", round(time.time() - t0, 3))
     
     if st.session_state.get("draft_language") not in languages:
         st.session_state.draft_language = languages[0]
@@ -48,7 +41,7 @@ with st.sidebar:
     bibles = db_repo.get_bibles_for_language(db_path, st.session_state.draft_language)
     bible_id_to_label = {int(b["id"]): f'{b["name"]} ({b.get("code","")})'.strip() for b in bibles}
     bible_ids = list(bible_id_to_label.keys())
-    st.write("✅ checkpoint F: about to call get_available_chapters()", round(time.time() - t0, 3))
+
     if not bible_ids:
         st.warning("No bibles available for this language.")
         st.session_state.draft_bible_id = None
@@ -68,12 +61,12 @@ with st.sidebar:
     if st.session_state.get("draft_level") not in LEVELS:
         st.session_state.draft_level = "A1"
     st.selectbox(t(st.session_state, "level"), LEVELS, key="draft_level")
-    st.write("✅ checkpoint G: about to call get_available_chapters()", round(time.time() - t0, 3))
+
     # --- Book ---
     books = db_repo.get_books_for_language(db_path, st.session_state.draft_language)
     book_id_to_label = {int(b["id"]): b["name"] for b in books}
     book_ids = list(book_id_to_label.keys()) or [1]
-    st.write("✅ checkpoint H: about to call get_available_chapters()", round(time.time() - t0, 3))
+    
     if st.session_state.get("draft_book_id") not in book_ids:
         st.session_state.draft_book_id = book_ids[0]
 
@@ -94,16 +87,18 @@ with st.sidebar:
             st.session_state.draft_level,
             int(st.session_state.draft_book_id),
         ) or [1]
-    st.write("✅ checkpoint I: about to call get_available_chapters()", round(time.time() - t0, 3))
+    
     cur_ch = int(st.session_state.get("draft_chapter", 1))
     if cur_ch not in chapters:
         st.session_state.draft_chapter = chapters[0]
 
-    st.selectbox(t(st.session_state, "chapter"), chapters, key="draft_chapter")
+    st.selectbox(t(st.session_state, "chapter"), 
+        chapters, 
+        key="draft_chapter",
+        on_change=apply_load,)
 
     if st.button(t(st.session_state, "load"), key="load_btn"):
         apply_load()
-
 
     st.divider()
 
