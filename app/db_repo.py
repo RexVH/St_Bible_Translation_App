@@ -15,7 +15,7 @@ def connect(db_path: str) -> sqlite3.Connection:
     SQLite connection suitable for Streamlit reruns.
     NOTE: Callers should close the connection (use `with connect(...) as conn:`).
     """
-    conn = sqlite3.connect(db_path, check_same_thread=False)
+    conn = sqlite3.connect(db_path, check_same_thread=False, timeout=1.0)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -32,7 +32,7 @@ def _safe_json_loads(s: Optional[str]) -> Any:
 # -----------------------------
 # Lookup lists for UI dropdowns
 # -----------------------------
-@lru_cache(maxsize=128)
+#@lru_cache(maxsize=128)
 def get_languages(db_path: str) -> List[str]:
     """
     v1 languages are also hard-coded, but this uses DB so it scales.
@@ -44,7 +44,7 @@ def get_languages(db_path: str) -> List[str]:
         ).fetchall()
     langs = [r["language"] for r in rows]
     # Fallback to v1 defaults if DB empty
-    return langs or ["English", "German"]
+    return langs
 
 
 @lru_cache(maxsize=256)

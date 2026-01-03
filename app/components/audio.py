@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import html
+from typing import Optional
+
 import streamlit as st
 import streamlit.components.v1 as components
-from typing import Optional
 
 
 ALLOWED_SPEEDS = [0.75, 0.80, 0.90, 1.0, 1.25, 1.5]
@@ -20,9 +21,11 @@ def render_audio_player(
 ) -> None:
     """
     Renders an HTML5 audio player with playback speed controls.
-    - Uses st.session_state[speed_key] to store speed.
-    - Provides a Streamlit-native selectbox for speed (reliable state).
-    - Embeds audio player via HTML so playbackRate can be applied.
+
+    Notes:
+    - Avoids using key= on components.html for compatibility with older Streamlit versions.
+    - Uses a unique <audio> id derived from active_* state so reruns don't clash.
+    - Applies playbackRate on loadedmetadata/canplay (no setTimeout).
     """
     if not audio_url:
         st.info("No audio available for this chapter.")
@@ -48,42 +51,53 @@ def render_audio_player(
         if float(new_speed) != float(st.session_state[speed_key]):
             st.session_state[speed_key] = float(new_speed)
 
-        # Download link
         st.link_button(download_label, audio_url)
 
     with c1:
         st.caption(label)
 
-        # HTML audio component with JS to set playbackRate
-        # Note: escaping URL for safety
         safe_url = html.escape(audio_url, quote=True)
         speed = float(st.session_state[speed_key])
 
+        # Unique audio element id per active context (prevents collisions on reruns)
+        ss = st.session_state
+        bible_id = ss.get("active_bible_id", "na")
+        level = ss.get("active_level", "na")
+        book_id = ss.get("active_book_id", "na")
+        chapter = ss.get("active_chapter", "na")
+
+        # Keep id DOM-safe
+        audio_id = f"audio_{bible_id}_{level}_{book_id}_{chapter}"
+        audio_id = "".join(ch if ch.isalnum() or ch in ("_", "-") else "_" for ch in str(audio_id))
+
         html_block = f"""
         <div style="width: 100%;">
-          <audio id="audio_player" controls style="width: 100%;">
+          <audio id="{audio_id}" controls style="width: 100%;" preload="metadata">
             <source src="{safe_url}" type="audio/mpeg">
             Your browser does not support the audio element.
           </audio>
         </div>
+
         <script>
           (function() {{
-            const audio = document.getElementById("audio_player");
+            const audio = document.getElementById("{audio_id}");
             if (!audio) return;
 
-            // Apply speed now
-            audio.playbackRate = {speed};
+            const speed = {speed};
 
-            // Re-apply speed whenever metadata is loaded (some browsers reset)
-            audio.addEventListener("loadedmetadata", () => {{
-              audio.playbackRate = {speed};
-            }});
+            function applySpeed() {{
+              try {{
+                audio.playbackRate = speed;
+              }} catch (e) {{}}
+            }}
 
-            // Re-apply speed if the element is re-rendered
-            setTimeout(() => {{
-              audio.playbackRate = {speed};
-            }}, 50);
+            applySpeed();
+            audio.addEventListener("loadedmetadata", applySpeed);
+            audio.addEventListener("canplay", applySpeed);
           }})();
         </script>
         """
-        components.html(html_block, height=85)
+
+        st.audio(audio_url)
+
+        #components.html(html_block, height=90)

@@ -59,5 +59,5 @@ UI_STRINGS = {
 
 
 def t(state, key: str) -> str:
-    lang = state.get("active_language", "English")
+    lang = state.get("active_language", "en")
     return UI_STRINGS.get(lang, UI_STRINGS["English"]).get(key, key)
