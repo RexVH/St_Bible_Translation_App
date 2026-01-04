@@ -5,12 +5,9 @@ import streamlit as st
 import db_repo
 
 LEVELS = ["A1", "A2", "B1", "B2", "Source"]
-# st.session_state.db_path = st.session_state.get(
-#         "db_path", os.getenv("BIBLE_DB_PATH", "data/multi_bibles.db")
-#     )
-st.session_state.db_path = os.getenv("BIBLE_DB_PATH", "C:/Temp/multi_bibles.db")
-
-
+st.session_state.db_path = st.session_state.get(
+        "db_path", os.getenv("BIBLE_DB_PATH", "data/multi_bibles.db")
+    )
 
 def _ensure_defaults():
     langs = db_repo.get_languages(st.session_state.db_path) or ["en"]

@@ -46,10 +46,17 @@ def _get_headword_and_gloss(entry: Dict[str, Any]) -> Tuple[Optional[str], Optio
             break
 
     gloss = None
-    for k in ("gloss", "definition", "meaning", "translation", "sense"):
+    for k in ("gloss_simple", "definition", "meaning", "translation", "sense"):
         v = entry.get(k)
         if isinstance(v, str) and v.strip():
             gloss = v.strip()
+            break
+    
+    pos = None
+    for k in ["pos"]:
+        v = entry.get(k)
+        if isinstance(v, str) and v.strip():
+            pos = v.strip()
             break
 
     # Sometimes gloss is nested
@@ -73,7 +80,7 @@ def _get_headword_and_gloss(entry: Dict[str, Any]) -> Tuple[Optional[str], Optio
             if gloss:
                 break
 
-    return headword, gloss
+    return headword, gloss, pos
 
 
 def render_key_words_strip(
@@ -91,13 +98,13 @@ def render_key_words_strip(
     """
     entries = _extract_entries(vocab_json)
 
-    words: List[Tuple[str, str]] = []
+    words: List[Tuple[str, str, str]] = []
     for e in entries:
-        hw, gloss = _get_headword_and_gloss(e)
+        hw, gloss, pos = _get_headword_and_gloss(e)
         if not hw:
             continue
         gloss = gloss or ""
-        words.append((hw, gloss))
+        words.append((hw, gloss, pos))
         if len(words) >= limit:
             break
 
@@ -114,34 +121,11 @@ def render_key_words_strip(
     for i in range(0, len(words), per_row):
         row = words[i : i + per_row]
         cols = st.columns(len(row))
-        for (hw, gloss), c in zip(row, cols):
+        for (hw, gloss, pos), c in zip(row, cols):
             with c:
-                # Use button with help tooltip to simulate "hover gloss"
-                tooltip = _truncate_one_line(gloss) if gloss else None
-                clicked = st.button(
-                    hw,
-                    key=f"kw_{i}_{hw}",
-                    help=tooltip,
-                    use_container_width=True,
-                )
-                if clicked:
-                    # Toggle selection
-                    if st.session_state[state_key_selected] == hw:
-                        st.session_state[state_key_selected] = None
+                with st.popover(f"{hw} ({pos})", use_container_width=True):
+                    if gloss.strip():
+                        st.write(gloss)
                     else:
-                        st.session_state[state_key_selected] = hw
+                        st.caption("No glossary available.")
 
-    # Click/tap reveal for mobile (and also useful on desktop)
-    selected = st.session_state.get(state_key_selected)
-    if selected:
-        # find gloss
-        gloss = ""
-        for hw, g in words:
-            if hw == selected:
-                gloss = g or ""
-                break
-
-        if gloss.strip():
-            st.caption(f"**{selected}** — {_truncate_one_line(gloss, 220)}")
-        else:
-            st.caption(f"**{selected}**")
