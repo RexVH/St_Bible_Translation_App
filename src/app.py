@@ -17,7 +17,7 @@ from i18n import t
 import db_repo
 from components.image import banner_with_overlay
 from components.audio import render_audio_player
-from components.vocab import render_key_words_strip
+from components.vocab import render_key_words_strip, render_vocab_section
 from components.text import render_text_block
 
 init_state()
@@ -32,12 +32,16 @@ with st.sidebar:
     if not languages:
         st.error("No languages available.")
         st.stop()
-    
+
     if st.session_state.get("draft_language") not in languages:
         st.session_state.draft_language = languages[0]
 
-    st.selectbox(t(st.session_state, "language"), languages, key="draft_language",
-        on_change=on_draft_language_change,)
+    st.selectbox(
+        t(st.session_state, "language"),
+        languages,
+        key="draft_language",
+        on_change=on_draft_language_change,
+    )
 
     # --- Bible ---
     bibles = db_repo.get_bibles_for_language(db_path, st.session_state.draft_language)
@@ -68,7 +72,7 @@ with st.sidebar:
     books = db_repo.get_books_for_language(db_path, st.session_state.draft_language)
     book_id_to_label = {int(b["id"]): b["name"] for b in books}
     book_ids = list(book_id_to_label.keys()) or [1]
-    
+
     if st.session_state.get("draft_book_id") not in book_ids:
         st.session_state.draft_book_id = book_ids[0]
 
@@ -89,15 +93,17 @@ with st.sidebar:
             st.session_state.draft_level,
             int(st.session_state.draft_book_id),
         ) or [1]
-    
+
     cur_ch = int(st.session_state.get("draft_chapter", 1))
     if cur_ch not in chapters:
         st.session_state.draft_chapter = chapters[0]
 
-    st.selectbox(t(st.session_state, "chapter"), 
-        chapters, 
+    st.selectbox(
+        t(st.session_state, "chapter"),
+        chapters,
         key="draft_chapter",
-        on_change=apply_load,)
+        on_change=apply_load,
+    )
 
     if st.button(t(st.session_state, "load"), key="load_btn"):
         apply_load()
@@ -142,16 +148,14 @@ if st.session_state.active_bible_id is not None:
     )
 
 if meta:
-    # One-line summary as headline
     one_line = meta.get("summary_one_line") or ""
 
-    # Show image
     img_url = meta.get("image_url")
     if img_url:
         html_text = banner_with_overlay(
-            image_ref=img_url,                 # URL from DB
+            image_ref=img_url,
             title=f"{book_name} {chapter_num}",
-            subtitle=one_line,                     # keep paragraph visible below (your preference)
+            subtitle=one_line,
             banner_height_px=260,
         )
         import streamlit.components.v1 as comp
@@ -163,16 +167,13 @@ if meta:
             st.image(img_url, width='stretch', caption="Right-click to open in a new tab or window.")
         _dlg()
 
-        
-    # Summary paragraph always visible
     para = meta.get("summary_paragraph") or ""
     if para.strip():
         st.write(para)
-
 else:
     st.warning("No chapter metadata found for this selection (yet).")
 
-st.divider() # audio player
+st.divider()  # audio player
 
 # --- AUDIO BLOCK ---
 audio_url = meta.get("audio_url") if meta else None
@@ -193,7 +194,6 @@ with nav1:
     st.button(t(st.session_state, "nav_prev"), on_click=go_prev_chapter)
 
 with nav2:
-    # Active book dropdown (store ID directly)
     books = db_repo.get_books_for_language(db_path, st.session_state.active_language)
     active_book_id_to_label = {int(b["id"]): b["name"] for b in books}
 
@@ -211,10 +211,9 @@ with nav2:
             key="active_book_id",
             format_func=lambda i: active_book_id_to_label.get(i, str(i)),
             on_change=on_active_book_change,
-            )
+        )
 
 with nav3:
-    # Active chapter dropdown depends on active selection
     chapters = []
     if st.session_state.active_bible_id is not None:
         chapters = db_repo.get_available_chapters(
@@ -226,7 +225,6 @@ with nav3:
     if not chapters:
         chapters = [1]
 
-    # --- Clamp BEFORE widget, but only via session_state logic
     st.session_state.setdefault("active_chapter", chapters[0])
 
     if st.session_state.active_chapter not in chapters:
@@ -234,7 +232,6 @@ with nav3:
             chapters, st.session_state.active_chapter
         )
 
-    # --- Widget: NO index, NO default
     st.selectbox(
         t(st.session_state, "chapter"),
         chapters,
@@ -264,9 +261,9 @@ render_key_words_strip(
     state_key_selected="kw_selected",
 )
 
-st.divider() # ---- End Vocab
+st.divider()  # ---- End Vocab preview
 
-# --- START Controls (wherever you’re keeping reader controls; v1 can live above the text)
+# --- START Controls (reader controls above text)
 show_verse_numbers = st.toggle(
     t(st.session_state, "show_verse_numbers"),
     value=st.session_state.get("show_verse_numbers", True),
@@ -298,7 +295,7 @@ teaching_notes = db_repo.get_teaching_notes(
 
 notes_by_verse_start = db_repo.group_teaching_notes_by_verse_start(teaching_notes)
 
-#--- Render
+# --- Render verses (and notes / highlighting)
 render_text_block(
     verses=verses,
     vocab_json=vocab_json,
@@ -306,5 +303,16 @@ render_text_block(
     show_verse_numbers=show_verse_numbers,
     highlight_vocab=highlight_vocab,
 )
+
+# ✅ Vocabulary section AFTER the verse display (now shows lemma + pos + example)
+st.divider()
+with st.expander(t(st.session_state, "vocabulary"), expanded=False):
+    render_vocab_section(
+        vocab_json=vocab_json,
+        title=t(st.session_state, "vocabulary"),
+        enable_search=True,
+        columns=3,
+        state_key_query="vocab_query",
+    )
 
 st.info("How does this look now now?")
