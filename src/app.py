@@ -1,4 +1,4 @@
-# app/app.py
+# src/app.py
 import streamlit as st
 st.set_page_config(layout="wide")
 
@@ -19,6 +19,9 @@ from components.image import banner_with_overlay
 from components.audio import render_audio_player
 from components.vocab import render_key_words_strip, render_vocab_section
 from components.text import render_text_block
+from components.quiz import render_quiz_section 
+from components.chat import render_chat_placeholder
+from components.feedback import render_feedback_footer
 
 init_state()
 
@@ -315,4 +318,34 @@ with st.expander(t(st.session_state, "vocabulary"), expanded=False):
         state_key_query="vocab_query",
     )
 
-st.info("How does this look now now?")
+st.divider()
+
+# --- ✅ QUIZ SECTION ---
+quiz_json = meta.get("quiz_json") if meta else None
+render_quiz_section(
+    quiz_json=quiz_json,
+    t=t,
+    book_name=book_name,
+    chapter_num=chapter_num,
+)
+
+# --- ✅ H. CHAT PLACEHOLDER (collapsed) ---
+st.divider()
+render_chat_placeholder(
+    t=t,
+    book_name=book_name,
+    chapter_num=chapter_num,
+    verses=verses,
+    vocab_json=vocab_json,
+)
+
+# --- ✅ I. FEEDBACK + FOOTER ---
+st.divider()
+render_feedback_footer(
+    t=t,
+    book_name=book_name,
+    chapter_num=chapter_num,
+    bible_name=bible_name,
+    level=st.session_state.active_level,
+    verses=verses,
+)
