@@ -9,7 +9,7 @@ LEVELS = ["A1", "A2", "B1", "B2", "Source"]
 def _ensure_defaults():
     langs = db_repo.get_languages(st.session_state.get("db_path")) or ["en"]
     if st.session_state.get("draft_language") not in langs:
-        st.session_state.draft_language = langs[0]
+        st.session_state.draft_language = langs[1]
 
     bibles = db_repo.get_bibles_for_language(
         st.session_state.db_path, st.session_state.draft_language

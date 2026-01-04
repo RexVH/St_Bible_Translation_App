@@ -37,7 +37,7 @@ with st.sidebar:
         st.stop()
 
     if st.session_state.get("draft_language") not in languages:
-        st.session_state.draft_language = languages[0]
+        st.session_state.draft_language = languages[1]
 
     st.selectbox(
         t(st.session_state, "language"),
@@ -191,7 +191,7 @@ render_audio_player(
 st.divider()
 
 # Navigation + quick settings row
-nav1, nav2, nav3, nav4 = st.columns([1, 3, 3, 1])
+nav1, nav2, nav3, nav4 = st.columns([1, 3, 3, 1], vertical_alignment="center")
 
 with nav1:
     st.button(t(st.session_state, "nav_prev"), on_click=go_prev_chapter)
