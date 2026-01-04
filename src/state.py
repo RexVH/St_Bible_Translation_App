@@ -7,7 +7,7 @@ import db_repo
 LEVELS = ["A1", "A2", "B1", "B2", "Source"]
 
 def _ensure_defaults():
-    langs = db_repo.get_languages(st.session_state.db_path) or ["en"]
+    langs = db_repo.get_languages(st.session_state.get("db_path")) or ["en"]
     if st.session_state.get("draft_language") not in langs:
         st.session_state.draft_language = langs[0]
 
@@ -70,10 +70,10 @@ def _ensure_defaults():
     st.session_state.setdefault("feedback_submitted", False)
 
 def init_state():
-    st.session_state.setdefault(
-        "db_path",
-        os.getenv("BIBLE_DB_PATH", "data/multi_bibles.db"),
-    )
+    db_path = st.session_state.get("db_path")
+    if not db_path:
+        db_path = os.getenv("BIBLE_DB_PATH", "data/multi_bibles.db")
+        st.session_state["db_path"] = db_path
 
     if st.session_state.get("initialized"):
         _ensure_defaults()
@@ -82,7 +82,7 @@ def init_state():
     st.session_state.initialized = True
   
     # Pull real languages from DB
-    langs = db_repo.get_languages(st.session_state.db_path)
+    langs = db_repo.get_languages(st.session_state.get("db_path"))
     if not langs:
         langs = ["English"]  # super defensive
 
