@@ -5,11 +5,17 @@ app/
 ├── i18n.py
 ├── components/
 │   ├── audio.py
+|   ├── catalog.py
+|   ├── chat.py
+|   ├── emailer.py
+|   ├── feedback.py
+|   ├── image.py
 │   ├── quiz.py
 │   ├── text.py
 │   └── vocab.py
 data/
-├── multi_bibles.db
+├── asv.db
+├── textbibel.db
 docs/
 ├── ui_v1_requirements.md
 ├── session_state_v1.md

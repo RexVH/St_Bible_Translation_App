@@ -3,55 +3,78 @@
 import os
 import streamlit as st
 import db_repo
+from components.catalog import build_catalog
 
-LEVELS = ["A1", "A2", "B1", "B2", "Source"]
+LEVELS = ["A1", "A2", "B1", "B2", "src"]
 
 def _ensure_defaults():
-    langs = db_repo.get_languages(st.session_state.get("db_path")) or ["en"]
+    catalog = build_catalog(data_dir())
+
+    langs = list(catalog.keys())
+    if not langs:
+        # no dbs found; keep app from crashing
+        st.session_state.draft_language = "English"
+        st.session_state.draft_level = "A1"
+        st.session_state.draft_book_id = 1
+        st.session_state.draft_chapter = 1
+        return
+
+    # --- Draft language ---
     if st.session_state.get("draft_language") not in langs:
-        st.session_state.draft_language = langs[1]
+        st.session_state.draft_language = langs[0]
 
-    bibles = db_repo.get_bibles_for_language(
-        st.session_state.db_path, st.session_state.draft_language
-    )
-    bible_ids = [int(b["id"]) for b in bibles]
-    default_bible_id = bible_ids[0] if bible_ids else None
-    if st.session_state.get("draft_bible_id") not in bible_ids:
-        st.session_state.draft_bible_id = default_bible_id
+    # --- Draft translation (label) ---
+    translations = catalog.get(st.session_state.draft_language, [])
+    labels = [t["label"] for t in translations]
+    if not labels:
+        # language exists but no translations; defensive
+        st.session_state.draft_translation_label = None
+        return
 
+    if st.session_state.get("draft_translation_label") not in labels:
+        st.session_state.draft_translation_label = labels[0]
+
+    # --- Resolve db_path from selected translation ---
+    selected = next(t for t in translations if t["label"] == st.session_state.draft_translation_label)
+    st.session_state.db_path = selected["db_path"]
+
+    # --- Bible id inside this DB (usually 1 bible) ---
+    # Recommended: add a db_repo helper for this (see below)
+    st.session_state.draft_bible_id = db_repo.get_default_bible_id_for_db(st.session_state.db_path)
+
+    # --- Level ---
     if st.session_state.get("draft_level") not in LEVELS:
         st.session_state.draft_level = "A1"
 
-    books = db_repo.get_books_for_language(
-        st.session_state.db_path, st.session_state.draft_language
-    )
+    # --- Books ---
+    books = db_repo.get_books_for_language(st.session_state.db_path, st.session_state.draft_language)
     book_ids = [int(b["id"]) for b in books]
     default_book_id = book_ids[0] if book_ids else 1
     if st.session_state.get("draft_book_id") not in book_ids:
         st.session_state.draft_book_id = default_book_id
 
-    if st.session_state.get("draft_bible_id") is None:
+    # --- Chapters ---
+    bible_id = st.session_state.draft_bible_id
+    if bible_id is None:
         st.session_state.draft_chapter = 1
     else:
         chapters = db_repo.get_available_chapters(
             st.session_state.db_path,
-            int(st.session_state.draft_bible_id),
+            int(bible_id),
             st.session_state.draft_level,
             int(st.session_state.draft_book_id),
         )
-        if not chapters:
-            st.session_state.draft_chapter = 1
-        else:
-            desired = int(st.session_state.get("draft_chapter", chapters[0]))
-            st.session_state.draft_chapter = db_repo.clamp_to_available_chapter(
-                chapters, desired
-            )
+        desired = int(st.session_state.get("draft_chapter", 1))
+        st.session_state.draft_chapter = db_repo.clamp_to_available_chapter(chapters, desired)
 
+    # --- Active defaults ---
     st.session_state.setdefault("active_language", st.session_state.draft_language)
+    st.session_state.setdefault("active_translation_label", st.session_state.draft_translation_label)
     st.session_state.setdefault("active_bible_id", st.session_state.draft_bible_id)
     st.session_state.setdefault("active_level", st.session_state.draft_level)
     st.session_state.setdefault("active_book_id", st.session_state.draft_book_id)
     st.session_state.setdefault("active_chapter", st.session_state.draft_chapter)
+
     st.session_state.setdefault("show_verse_numbers", True)
     st.session_state.setdefault("highlight_vocab", False)
     st.session_state.setdefault("audio_speed", 1.0)
@@ -70,36 +93,46 @@ def _ensure_defaults():
     st.session_state.setdefault("feedback_submitted", False)
 
 def init_state():
-    db_path = st.session_state.get("db_path")
-    if not db_path:
-        db_path = os.getenv("BIBLE_DB_PATH", "data/multi_bibles.db")
-        st.session_state["db_path"] = db_path
+    # Build catalog once per rerun (cached in build_catalog)
+    catalog = build_catalog(data_dir())
+
+    langs = list(catalog.keys())
+    if not langs:
+        st.error("No Bible .db files found in /data.")
+        st.stop()
+
+    # Ensure baseline keys exist before _ensure_defaults runs
+    st.session_state.setdefault("draft_language", langs[0])
+
+    # Pick a default translation label for that language
+    translations = catalog.get(st.session_state.draft_language, [])
+    if not translations:
+        st.session_state.draft_language = langs[0]
+        translations = catalog[st.session_state.draft_language]
+
+    st.session_state.setdefault("draft_translation_label", translations[0]["label"])
+
+    # Resolve db_path immediately from defaults
+    selected = next(t for t in translations if t["label"] == st.session_state.draft_translation_label)
+    st.session_state["db_path"] = selected["db_path"]
 
     if st.session_state.get("initialized"):
         _ensure_defaults()
         return
 
     st.session_state.initialized = True
-  
-    # Pull real languages from DB
-    langs = db_repo.get_languages(st.session_state.get("db_path"))
-    if not langs:
-        langs = ["English"]  # super defensive
 
-    # Draft (sidebar) — MUST be valid options
-    st.session_state.draft_language = langs[0]
+    # Draft defaults (sidebar)
     st.session_state.draft_level = "A1"
     st.session_state.draft_book_id = 1
     st.session_state.draft_chapter = 1
 
-    # Now that language is real, pick a default bible_id
-    st.session_state.draft_bible_id = db_repo.get_default_bible_id(
-        st.session_state.db_path,
-        st.session_state.draft_language,
-    )
+    # Bible id inside this DB
+    st.session_state.draft_bible_id = db_repo.get_default_bible_id_for_db(st.session_state.db_path)
 
     # Active starts from draft
     st.session_state.active_language = st.session_state.draft_language
+    st.session_state.active_translation_label = st.session_state.draft_translation_label
     st.session_state.active_bible_id = st.session_state.draft_bible_id
     st.session_state.active_level = st.session_state.draft_level
     st.session_state.active_book_id = st.session_state.draft_book_id
@@ -113,23 +146,71 @@ def init_state():
     reset_feedback()
 
 
+def data_dir() -> str:
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_dir, "..", "data")
 
 def on_draft_language_change():
-    db_path = st.session_state.db_path
+    catalog = build_catalog(data_dir())
     lang = st.session_state.draft_language
+    translations = catalog.get(lang, [])
+    if not translations:
+        return
+    st.session_state.draft_translation_label = translations[0]["label"]
+    on_draft_translation_change()
 
-    st.session_state.draft_bible_id = db_repo.get_default_bible_id(db_path, lang)
+def on_draft_translation_change():
+    catalog = build_catalog(data_dir())
 
-    books = db_repo.get_books_for_language(db_path, lang)
+    lang = st.session_state.get("draft_language")
+    translations = catalog.get(lang, [])
+    if not translations:
+        return
+
+    label = st.session_state.get("draft_translation_label")
+    labels = [t["label"] for t in translations]
+    if label not in labels:
+        label = labels[0]
+        st.session_state.draft_translation_label = label
+
+    selected = next(t for t in translations if t["label"] == label)
+    new_db_path = selected["db_path"]
+
+    if st.session_state.get("db_path") == new_db_path:
+        return
+
+    st.session_state.db_path = new_db_path
+    ...
+
+    # Get the bible_id inside this split DB (usually 1 bible row)
+    # Use your split-db helper (recommended)
+    bible_id = db_repo.get_default_bible_id_for_db(new_db_path)
+    st.session_state.draft_bible_id = bible_id
+
+    # Reset book/chapter to valid defaults for this DB
+    books = db_repo.get_books_for_language(new_db_path, lang)
     if books:
-        valid_book_ids = {int(b["id"]) for b in books}
-        if int(st.session_state.draft_book_id) not in valid_book_ids:
-            st.session_state.draft_book_id = int(books[0]["id"])
+        st.session_state.draft_book_id = int(books[0]["id"])
     else:
         st.session_state.draft_book_id = 1
 
-    on_draft_bible_level_book_change()
+    st.session_state.draft_chapter = 1
 
+    # Now clamp chapter based on available chapters for the selected level/book
+    # (This uses your existing logic if you have it)
+    if "on_draft_bible_level_book_change" in globals():
+        on_draft_bible_level_book_change()
+    else:
+        # Minimal fallback clamp if you don't have that helper in state.py
+        if bible_id is not None:
+            chapters = db_repo.get_available_chapters(
+                new_db_path,
+                int(bible_id),
+                st.session_state.get("draft_level", "A1"),
+                int(st.session_state.draft_book_id),
+            )
+            if chapters:
+                st.session_state.draft_chapter = int(chapters[0])
 
 def on_draft_bible_level_book_change():
     db_path = st.session_state.db_path

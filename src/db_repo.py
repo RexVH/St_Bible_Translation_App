@@ -4,7 +4,7 @@ from __future__ import annotations
 import sqlite3
 import json
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 
 # -----------------------------
@@ -19,6 +19,14 @@ def connect(db_path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(uri, uri=True, check_same_thread=False, timeout=1.0)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
+        (table_name,),
+    ).fetchone()
+    return row is not None
 
 
 def _safe_json_loads(s: Optional[str]) -> Any:
@@ -47,57 +55,57 @@ def get_languages(db_path: str) -> List[str]:
     # Fallback to v1 defaults if DB empty
     return langs
 
-
 @lru_cache(maxsize=256)
-def get_bibles_for_language(db_path: str, language: str) -> List[Dict[str, Any]]:
-    """
-    Returns list of bibles for a language.
-    Each item: {id, code, name, year, license}
-    """
+def get_default_bible_id_for_db(db_path: str) -> Optional[int]:
+    # Split DBs should contain exactly one bible row; take the first defensively.
     with connect(db_path) as conn:
-        rows = conn.execute(
-            """
-            SELECT id, code, language, name, year, license
-            FROM bibles
-            WHERE language = ?
-            ORDER BY name
-            """,
-            (language,),
-        ).fetchall()
+        row = conn.execute("SELECT id FROM bibles ORDER BY id LIMIT 1").fetchone()
+    return int(row["id"]) if row else None
+# @lru_cache(maxsize=256)
+# def get_bibles_for_language(db_path: str, language: str) -> List[Dict[str, Any]]:
+#     """
+#     Returns list of bibles for a language.
+#     Each item: {id, code, name, year, license}
+#     """
+#     with connect(db_path) as conn:
+#         rows = conn.execute(
+#             """
+#             SELECT id, code, language, name, year, license
+#             FROM bibles
+#             WHERE language = ?
+#             ORDER BY name
+#             """,
+#             (language,),
+#         ).fetchall()
 
-    return [dict(r) for r in rows]
+#     return [dict(r) for r in rows]
 
 
 @lru_cache(maxsize=256)
 def get_books_for_language(db_path: str, language: str) -> List[Dict[str, Any]]:
     """
-    Returns books (localized) for a language, ordered canonically by sort_order.
-    Falls back to books_en if localized table missing for that language.
-    Each item: {id, name, testament, sort_order}
+    New schema: single 'books' table with a 'language' column.
+    Expected columns: id, language, name, testament, sort_order (extras ignored).
     """
     with connect(db_path) as conn:
-        rows = conn.execute(
-            """
-            SELECT id, name, testament, sort_order
-            FROM books
-            WHERE language = ?
-            ORDER BY sort_order
-            """,
-            (language,),
-        ).fetchall()
+        # Prefer sort_order if present, else id
+        if _table_exists(conn, "books"):
+            # detect whether sort_order exists
+            cols = {r["name"] for r in conn.execute("PRAGMA table_info(books)").fetchall()}
+            order_clause = "sort_order, id" if "sort_order" in cols else "id"
 
-        if rows:
+            rows = conn.execute(
+                f"""
+                SELECT id, language, name, testament, sort_order
+                FROM books
+                WHERE language = ?
+                ORDER BY {order_clause}
+                """,
+                (language,),
+            ).fetchall()
             return [dict(r) for r in rows]
 
-        # fallback (should not happen in your current setup, but safe)
-        rows2 = conn.execute(
-            """
-            SELECT id, name, testament, sort_order
-            FROM books_en
-            ORDER BY sort_order
-            """
-        ).fetchall()
-        return [dict(r) for r in rows2]
+        raise sqlite3.OperationalError("No 'books' table found.")
 
 
 @lru_cache(maxsize=1024)
@@ -204,37 +212,37 @@ def get_vocab_json(
     db_path: str, bible_id: int, level: str, book_id: int, chapter: int
 ) -> Optional[dict]:
     """
-    Prefer chapter_vocab.vocab_json (per spec).
-    Fallback: graded_chapter_meta.vocab_json if chapter_vocab missing.
-    Returns parsed JSON dict or None.
+    New schema: prefer graded_chapter_meta.vocab_json.
+    Legacy fallback: chapter_vocab.vocab_json if that table exists.
     """
     with connect(db_path) as conn:
-        row = conn.execute(
-            """
-            SELECT vocab_json
-            FROM chapter_vocab
-            WHERE bible_id = ? AND level = ? AND book_id = ? AND chapter = ?
-            LIMIT 1
-            """,
-            (bible_id, level, book_id, chapter),
-        ).fetchone()
+        # Prefer new location
+        if _table_exists(conn, "graded_chapter_meta"):
+            row = conn.execute(
+                """
+                SELECT vocab_json
+                FROM graded_chapter_meta
+                WHERE bible_id = ? AND level = ? AND book_id = ? AND chapter = ?
+                LIMIT 1
+                """,
+                (bible_id, level, book_id, chapter),
+            ).fetchone()
+            if row and row["vocab_json"]:
+                return _safe_json_loads(row["vocab_json"])
 
-        if row and row["vocab_json"]:
-            return _safe_json_loads(row["vocab_json"])
-
-        # fallback
-        row2 = conn.execute(
-            """
-            SELECT vocab_json
-            FROM graded_chapter_meta
-            WHERE bible_id = ? AND level = ? AND book_id = ? AND chapter = ?
-            LIMIT 1
-            """,
-            (bible_id, level, book_id, chapter),
-        ).fetchone()
-
-        if row2 and row2["vocab_json"]:
-            return _safe_json_loads(row2["vocab_json"])
+        # Legacy fallback (only if table exists)
+        if _table_exists(conn, "chapter_vocab"):
+            row2 = conn.execute(
+                """
+                SELECT vocab_json
+                FROM chapter_vocab
+                WHERE bible_id = ? AND level = ? AND book_id = ? AND chapter = ?
+                LIMIT 1
+                """,
+                (bible_id, level, book_id, chapter),
+            ).fetchone()
+            if row2 and row2["vocab_json"]:
+                return _safe_json_loads(row2["vocab_json"])
 
     return None
 
@@ -294,10 +302,8 @@ def get_quiz_json(
 
 @lru_cache(maxsize=256)
 def get_default_bible_id(db_path: str, language: str) -> Optional[int]:
-    bibles = get_bibles_for_language(db_path, language)
-    if not bibles:
-        return None
-    return int(bibles[0]["id"])
+    # language is ignored in split-DB mode
+    return get_default_bible_id_for_db(db_path)
 
 
 @lru_cache(maxsize=512)

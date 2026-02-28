@@ -1,4 +1,5 @@
 # src/app.py
+import json
 import streamlit as st
 st.set_page_config(layout="wide")
 
@@ -12,9 +13,11 @@ from state import (
     on_draft_book_change,
     on_active_book_change,
     on_active_chapter_change,
+    on_draft_translation_change
 )
 from i18n import t
 import db_repo
+from state import data_dir
 from components.image import banner_with_overlay
 from components.audio import render_audio_player
 from components.vocab import render_key_words_strip, render_vocab_section
@@ -22,22 +25,24 @@ from components.text import render_text_block
 from components.quiz import render_quiz_section 
 from components.chat import render_chat_placeholder
 from components.feedback import render_feedback_footer
+from components.catalog import build_catalog
 
 init_state()
-
-db_path = st.session_state.db_path
 
 # --- SIDEBAR ---
 with st.sidebar:
     st.header(t(st.session_state, "selection"))
     # --- Language ---
-    languages = db_repo.get_languages(db_path)
+    catalog = build_catalog(data_dir())
+
+    languages = list(catalog.keys())
     if not languages:
-        st.error("No languages available.")
+        st.error("No .db files found in /data or no valid bibles inside them.")
         st.stop()
 
+    # Draft language
     if st.session_state.get("draft_language") not in languages:
-        st.session_state.draft_language = languages[1]
+        st.session_state.draft_language = languages[0]
 
     st.selectbox(
         t(st.session_state, "language"),
@@ -46,24 +51,34 @@ with st.sidebar:
         on_change=on_draft_language_change,
     )
 
-    # --- Bible ---
-    bibles = db_repo.get_bibles_for_language(db_path, st.session_state.draft_language)
-    bible_id_to_label = {int(b["id"]): f'{b["name"]} ({b.get("code","")})'.strip() for b in bibles}
-    bible_ids = list(bible_id_to_label.keys())
+    # Translation (sets db_path)
+    translations = catalog.get(st.session_state.draft_language, [])
+    if not translations:
+        st.warning("No translations available for this language.")
+        st.stop()
 
-    if not bible_ids:
-        st.warning("No bibles available for this language.")
-        st.session_state.draft_bible_id = None
-    else:
-        if st.session_state.get("draft_bible_id") not in bible_ids:
-            st.session_state.draft_bible_id = bible_ids[0]
+    labels = [t["label"] for t in translations]
 
-        st.selectbox(
-            t(st.session_state, "bible"),
-            bible_ids,
-            key="draft_bible_id",
-            format_func=lambda i: bible_id_to_label.get(i, str(i)),
-        )
+    # store the selection by label (or by db_path; either works)
+    if st.session_state.get("draft_translation_label") not in labels:
+        st.session_state.draft_translation_label = labels[0]
+
+    st.selectbox(
+        t(st.session_state, "bible"),   # reuse existing label key
+        labels,
+        key="draft_translation_label",
+        on_change=on_draft_translation_change
+    )
+
+    # Resolve selected db_path
+    selected = next(x for x in translations if x["label"] == st.session_state.draft_translation_label)
+    st.session_state.db_path = selected["db_path"]
+    db_path = st.session_state.db_path
+
+    st.session_state.draft_bible_id = db_repo.get_default_bible_id_for_db(db_path)
+    if st.session_state.draft_bible_id is None:
+        st.warning("No bible row found in this database.")
+        st.stop()
 
     # --- Level ---
     LEVELS = ["A1", "A2", "B1", "B2", "Source"]
@@ -247,14 +262,41 @@ with nav4:
 
 st.divider()
 
-# --- VOCAB DISPLAY AND KEY WORDS STRIP (first 10) ---
-vocab_json = db_repo.get_vocab_json(
-    db_path,
-    int(st.session_state.active_bible_id),
-    st.session_state.active_level,
-    int(st.session_state.active_book_id),
-    int(st.session_state.active_chapter),
-)
+# --- VOCAB DISPLAY AND KEY WORDS STRIP (first 10); prefer vocab_json stored on graded_chapter_meta (new schema)
+vocab_json = (meta.get("vocab_json") if meta else None)
+print("Vocab JSON from meta:", vocab_json)
+
+# ✅ Decode SQLite TEXT -> dict
+if isinstance(vocab_json, (bytes, bytearray)):
+    vocab_json = vocab_json.decode("utf-8", errors="replace")
+
+if isinstance(vocab_json, str):
+    vocab_json = vocab_json.strip()
+    if vocab_json:
+        try:
+            vocab_json = json.loads(vocab_json)
+        except json.JSONDecodeError:
+            print("Failed to decode vocab_json as JSON:", vocab_json)
+            vocab_json = None
+    else:
+        vocab_json = None
+
+# Fallback to legacy table lookup if you still have it in some DBs
+if not vocab_json:
+    try:
+        vocab_json = db_repo.get_vocab_json(
+            db_path,
+            int(st.session_state.active_bible_id),
+            st.session_state.active_level,
+            int(st.session_state.active_book_id),
+            int(st.session_state.active_chapter),
+        )
+    except Exception:
+        vocab_json = None
+
+# st.write("vocab_json type:", type(vocab_json))
+# if isinstance(vocab_json, dict):
+#     st.write("vocab entries:")
 
 render_key_words_strip(
     vocab_json=vocab_json,
@@ -269,13 +311,11 @@ st.divider()  # ---- End Vocab preview
 # --- START Controls (reader controls above text)
 show_verse_numbers = st.toggle(
     t(st.session_state, "show_verse_numbers"),
-    value=st.session_state.get("show_verse_numbers", True),
     key="show_verse_numbers",
 )
 
 highlight_vocab = st.toggle(
     t(st.session_state, "highlight_vocab"),
-    value=st.session_state.get("highlight_vocab", False),
     key="highlight_vocab",
 )
 

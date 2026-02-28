@@ -171,7 +171,7 @@ def render_key_words_strip(
     if not words:
         return
 
-    st.markdown(f"**{title}**")
+    st.markdown(f"{title}: {len(vocab_json.get('vocab', []))}")
 
     # Initialize selected state (kept for compatibility with your earlier approach)
     if state_key_selected not in st.session_state:
