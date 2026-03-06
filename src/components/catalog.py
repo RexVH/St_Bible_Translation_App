@@ -8,7 +8,6 @@ from typing import Dict, List, TypedDict
 
 import streamlit as st
 
-
 class TranslationEntry(TypedDict):
     label: str
     db_path: str

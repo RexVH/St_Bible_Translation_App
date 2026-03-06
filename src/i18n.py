@@ -2,6 +2,10 @@
 
 UI_STRINGS = {
     "en": {
+        "startup_instruction": "Select a language to see the available translations to get started.",
+        "pos": "Part of speech",
+        "lemma": "Lemma",
+        "example": "Example",
         "load": "Load",
         "selection": "Selection",
         "language": "Language",
@@ -19,7 +23,7 @@ UI_STRINGS = {
         "nav_next": "Next",
         "show_verses": "Show verse numbers",
         "highlight_vocab": "Highlight vocabulary",
-        "key_words": "Key words",
+        "key_words": "Keywords and phrases",
         "vocabulary": "Vocabulary",
         "show_verse_numbers": "Show verse numbers",
         "highlight_vocab": "Highlight key words",
@@ -29,6 +33,10 @@ UI_STRINGS = {
         "chat_soon": "Chat (Coming soon...)",
     },
     "de": {
+        "pos": "Wortart",
+        "example": "Beispiel",
+        "lemma": "Lemma",
+        "startup_instruction": "Wähle unten deine Sprache, um zu beginnen.",
         "load": "Laden",
         "selection": "Auswahl",
         "language": "Sprache",

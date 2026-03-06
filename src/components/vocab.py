@@ -4,12 +4,14 @@ from __future__ import annotations
 import streamlit as st
 from typing import Any, Dict, List, Optional, Tuple
 
+from i18n import t
 
-def _truncate_one_line(s: str, max_len: int = 90) -> str:
-    s = (s or "").strip().replace("\n", " ")
-    if len(s) <= max_len:
-        return s
-    return s[: max_len - 1].rstrip() + "…"
+
+# def _truncate_one_line(s: str, max_len: int = 90) -> str:
+#     s = (s or "").strip().replace("\n", " ")
+#     if len(s) <= max_len:
+#         return s
+#     return s[: max_len - 1].rstrip() + "…"
 
 
 def _extract_entries(vocab_json: Any) -> List[Dict[str, Any]]:
@@ -55,7 +57,7 @@ def _extract_vocab_fields(entry: Dict[str, Any]) -> Dict[str, Optional[str]]:
     for k in ("headword", "word", "term", "lemma"):
         v = entry.get(k)
         if isinstance(v, str) and v.strip():
-            headword = v.strip()
+            headword = v.strip().capitalize()
             break
 
     lemma = entry.get("lemma")
@@ -112,8 +114,8 @@ def _extract_vocab_fields(entry: Dict[str, Any]) -> Dict[str, Optional[str]]:
         example = ex.strip()
 
     return {
-        "headword": headword,
-        "lemma": lemma,
+        "headword": headword.capitalize() if headword else None,
+        "lemma": lemma.capitalize() if lemma else None,
         "pos": pos,
         "gloss": gloss,
         "example": example,
@@ -140,10 +142,10 @@ def _popover_vocab_details(data: Dict[str, Optional[str]]) -> None:
         st.markdown(f"- **Lemma:** {lemma.strip()}")
 
     if pos and pos.strip():
-        st.markdown(f"- **PoS:** {pos.strip()}")
+        st.markdown(f"- **{t(st.session_state, 'pos')}:** {pos.strip()}")
 
     if example and example.strip():
-        st.markdown(f"_Example:_ {example.strip()}")
+        st.markdown(f"_{t(st.session_state, 'example')}:_ {example.strip()}")
 
 
 def render_key_words_strip(
@@ -182,7 +184,7 @@ def render_key_words_strip(
         row = words[i : i + per_row]
         cols = st.columns(len(row))
         for data, c in zip(row, cols):
-            hw = data.get("headword") or ""
+            hw = data.get("headword").capitalize() if data.get("headword") else ""
             pos = data.get("pos") or ""
             label = f"{hw} ({pos})" if pos else hw
 
@@ -227,7 +229,7 @@ def render_vocab_section(
             st.session_state[state_key_query] = ""
         q = (
             st.text_input(
-                "",
+                "-->",
                 key=state_key_query,
                 placeholder=title + "…",
                 label_visibility="collapsed",
@@ -263,7 +265,7 @@ def render_vocab_section(
     for idx, data in enumerate(rows):
         hw = data.get("headword") or ""
         pos = data.get("pos") or ""
-        label = f"{hw} ({pos})" if pos else hw
+        label = f"{hw.capitalize()} ({pos})" if pos else hw
 
         with cols[idx % columns]:
             with st.popover(label, use_container_width=True):

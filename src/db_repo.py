@@ -96,7 +96,7 @@ def get_books_for_language(db_path: str, language: str) -> List[Dict[str, Any]]:
 
             rows = conn.execute(
                 f"""
-                SELECT id, language, name, testament, sort_order
+                SELECT id, language, name, sort_order
                 FROM books
                 WHERE language = ?
                 ORDER BY {order_clause}
@@ -121,21 +121,21 @@ def get_available_chapters(
             rows = conn.execute(
                 """
                 SELECT DISTINCT chapter
-                FROM verses
-                WHERE bible_id = ? AND book_id = ?
+                FROM graded_chapter_meta
+                WHERE book_id = ? AND level = 'src'
                 ORDER BY chapter
                 """,
-                (bible_id, book_id),
+                (book_id,),
             ).fetchall()
         else:
             rows = conn.execute(
                 """
                 SELECT DISTINCT chapter
                 FROM graded_chapter_meta
-                WHERE bible_id = ? AND level = ? AND book_id = ?
+                WHERE book_id = ? AND level = ?
                 ORDER BY chapter
                 """,
-                (bible_id, level, book_id),
+                (book_id, level),
             ).fetchall()
 
     return [int(r["chapter"]) for r in rows]
@@ -157,10 +157,10 @@ def get_chapter_meta(
             """
             SELECT *
             FROM graded_chapter_meta
-            WHERE bible_id = ? AND level = ? AND book_id = ? AND chapter = ?
+            WHERE level = ? AND book_id = ? AND chapter = ?
             LIMIT 1
             """,
-            (bible_id, level, book_id, chapter),
+            (level, book_id, chapter),
         ).fetchone()
 
     return dict(row) if row else None
@@ -180,29 +180,27 @@ def get_verses(
         if level == "Source":
             rows = conn.execute(
                 """
-                SELECT verse, text
-                FROM verses
-                WHERE bible_id = ? AND book_id = ? AND chapter = ?
+                SELECT verse, graded_text AS text 
+                FROM graded_verses
+                WHERE book_id = ? AND chapter = ? AND level = 'src'
                 ORDER BY verse
                 """,
-                (bible_id, book_id, chapter),
+                (book_id, chapter),
             ).fetchall()
             return [{"verse": int(r["verse"]), "text": r["text"]} for r in rows]
 
         rows = conn.execute(
             """
-            SELECT verse, graded_text AS text, verse_notes_json
+            SELECT verse, graded_text AS text
             FROM graded_verses
-            WHERE bible_id = ? AND level = ? AND book_id = ? AND chapter = ?
+            WHERE level = ? AND book_id = ? AND chapter = ?
             ORDER BY verse
             """,
-            (bible_id, level, book_id, chapter),
+            (level, book_id, chapter),
         ).fetchall()
         return [
             {
-                "verse": int(r["verse"]),
-                "text": r["text"],
-                "verse_notes_json": r["verse_notes_json"],
+                "verse": int(r["verse"]), "text": r["text"],
             }
             for r in rows
         ]
@@ -261,10 +259,10 @@ def get_teaching_notes(
             """
             SELECT teaching_notes_json
             FROM graded_chapter_meta
-            WHERE bible_id = ? AND level = ? AND book_id = ? AND chapter = ?
+            WHERE level = ? AND book_id = ? AND chapter = ?
             LIMIT 1
             """,
-            (bible_id, level, book_id, chapter),
+            (level, book_id, chapter),
         ).fetchone()
 
     payload = _safe_json_loads(row["teaching_notes_json"]) if row else None

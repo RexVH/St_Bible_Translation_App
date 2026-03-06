@@ -31,6 +31,7 @@ init_state()
 
 # --- SIDEBAR ---
 with st.sidebar:
+    st.info(t(st.session_state, "startup_instruction"))
     st.header(t(st.session_state, "selection"))
     # --- Language ---
     catalog = build_catalog(data_dir())
@@ -264,7 +265,6 @@ st.divider()
 
 # --- VOCAB DISPLAY AND KEY WORDS STRIP (first 10); prefer vocab_json stored on graded_chapter_meta (new schema)
 vocab_json = (meta.get("vocab_json") if meta else None)
-print("Vocab JSON from meta:", vocab_json)
 
 # ✅ Decode SQLite TEXT -> dict
 if isinstance(vocab_json, (bytes, bytearray)):
@@ -293,10 +293,6 @@ if not vocab_json:
         )
     except Exception:
         vocab_json = None
-
-# st.write("vocab_json type:", type(vocab_json))
-# if isinstance(vocab_json, dict):
-#     st.write("vocab entries:")
 
 render_key_words_strip(
     vocab_json=vocab_json,
