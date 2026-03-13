@@ -7,13 +7,17 @@ from components.catalog import build_catalog
 
 LEVELS = ["A1", "A2", "B1", "B2", "src"]
 
+
+def _preferred_default_language(langs: list[str]) -> str:
+    return "en" if "en" in langs else langs[0]
+
 def _ensure_defaults():
     catalog = build_catalog(data_dir())
 
     langs = list(catalog.keys())
     if not langs:
         # no dbs found; keep app from crashing
-        st.session_state.draft_language = "English"
+        st.session_state.draft_language = "en"
         st.session_state.draft_level = "A1"
         st.session_state.draft_book_id = 1
         st.session_state.draft_chapter = 1
@@ -21,7 +25,7 @@ def _ensure_defaults():
 
     # --- Draft language ---
     if st.session_state.get("draft_language") not in langs:
-        st.session_state.draft_language = langs[0]
+        st.session_state.draft_language = _preferred_default_language(langs)
 
     # --- Draft translation (label) ---
     translations = catalog.get(st.session_state.draft_language, [])
@@ -102,12 +106,12 @@ def init_state():
         st.stop()
 
     # Ensure baseline keys exist before _ensure_defaults runs
-    st.session_state.setdefault("draft_language", langs[0])
+    st.session_state.setdefault("draft_language", _preferred_default_language(langs))
 
     # Pick a default translation label for that language
     translations = catalog.get(st.session_state.draft_language, [])
     if not translations:
-        st.session_state.draft_language = langs[0]
+        st.session_state.draft_language = _preferred_default_language(langs)
         translations = catalog[st.session_state.draft_language]
 
     st.session_state.setdefault("draft_translation_label", translations[0]["label"])

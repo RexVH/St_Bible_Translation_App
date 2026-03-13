@@ -8,6 +8,16 @@ from typing import Dict, List, TypedDict
 
 import streamlit as st
 
+
+LANGUAGE_DISPLAY_NAMES = {
+    "en": "English",
+    "de": "Deutsch",
+    "es": "Español",
+    "fr": "Français",
+    "it": "Italiano",
+    "pt": "Português",
+}
+
 class TranslationEntry(TypedDict):
     label: str
     db_path: str
@@ -21,6 +31,16 @@ def _safe_fetchone(cur, sql: str):
         return cur.execute(sql).fetchone()
     except Exception:
         return None
+
+
+def get_language_display_name(language_code: str) -> str:
+    """
+    Convert a language code into a user-facing label for the language selector.
+    Falls back to the original DB value when unknown.
+    """
+    if not language_code:
+        return ""
+    return LANGUAGE_DISPLAY_NAMES.get(language_code, language_code)
 
 
 @st.cache_data(show_spinner=False)

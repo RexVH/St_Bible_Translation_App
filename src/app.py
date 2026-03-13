@@ -25,7 +25,7 @@ from components.text import render_text_block
 from components.quiz import render_quiz_section 
 from components.chat import render_chat_placeholder
 from components.feedback import render_feedback_footer
-from components.catalog import build_catalog
+from components.catalog import build_catalog, get_language_display_name
 
 init_state()
 
@@ -43,12 +43,13 @@ with st.sidebar:
 
     # Draft language
     if st.session_state.get("draft_language") not in languages:
-        st.session_state.draft_language = languages[0]
+        st.session_state.draft_language = "en" if "en" in languages else languages[0]
 
     st.selectbox(
         t(st.session_state, "language"),
         languages,
         key="draft_language",
+        format_func=get_language_display_name,
         on_change=on_draft_language_change,
     )
 
@@ -138,7 +139,7 @@ with st.sidebar:
 
     # Reference section (placeholder links for now)
     st.subheader(t(st.session_state, "reference"))
-    if st.session_state.active_language == "German":
+    if st.session_state.active_language == "de":
         st.link_button("Duden", "https://www.duden.de/")
         st.link_button("Wiktionary", "https://de.wiktionary.org/")
     else:
