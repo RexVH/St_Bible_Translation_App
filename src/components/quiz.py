@@ -202,7 +202,7 @@ def render_quiz_section(
     with h2:
         st.caption(f"{t(ss, 'question')} {ss.quiz_index + 1} {t(ss, 'of')} {total}")
     with h3:
-        st.write(t(ss, "correct:"), int(ss.quiz_correct), t(ss, "incorrect"), int(ss.quiz_incorrect))
+        st.write(t(ss, "correct"), int(ss.quiz_correct), t(ss, "incorrect"), int(ss.quiz_incorrect))
 
     # Question text
     q_text = q.get("question_text") or ""
@@ -248,12 +248,12 @@ def render_quiz_section(
     # Feedback after answering
     if answered_now:
         if ss.quiz_last_was_correct:
-            st.success("Yay! You chose the correct answer. Click next_question to continue.")
+            st.success(t(ss, "correct_answer"))
         else:
-            st.error(f"Sorry. The correct answer was '{correct_answer}'.  Click next_question to continue. ")
+            st.error(f"{t(ss, 'incorrect_answer')} '{correct_answer}'.  {t(ss, 'continue_to_next')}")
 
     # Hint / Explanation buttons
-    b1, b2, _, b3, b4 = st.columns([1, 1, 4, 1, 1])
+    b1, b2, _, b3, b4 = st.columns([1, 1, 2, 1, 1])
 
     with b1:
         if st.button(t(ss, "hint"), key=f"quiz_hint_{ss.quiz_index}"):
@@ -266,9 +266,15 @@ def render_quiz_section(
     # Reveals
     if ss.quiz_show_hint:
         ref = q.get("reference_verse")
-        bo_vs = ref.split(':')
+        rv = ""
         if isinstance(ref, str) and ref.strip():
-            st.caption(f"{t(ss, 'reference_verse')}  -  {book_name} {chapter_num}:{bo_vs[1]}")
+            if ":" in ref:
+                bo_vs = ref.split(':')
+                rv = bo_vs[1]
+            else:
+                rv = ref.strip()
+        if isinstance(ref, str) and ref.strip():
+            st.caption(f"{t(ss, 'reference_verse')}  -  {book_name} {chapter_num}:{rv}")
         else:
             st.caption(f"{t(ss, 'reference_verse')}: —")
 
