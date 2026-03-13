@@ -82,10 +82,16 @@ with st.sidebar:
         st.stop()
 
     # --- Level ---
-    LEVELS = ["A1", "A2", "B1", "B2", "Source"]
+    LEVELS = ["A1", "A2", "B1", "B2", "src"]
     if st.session_state.get("draft_level") not in LEVELS:
         st.session_state.draft_level = "A1"
-    st.selectbox(t(st.session_state, "level"), LEVELS, key="draft_level")
+    st.selectbox(
+        t(st.session_state, "level"),
+        LEVELS,
+        key="draft_level",
+        format_func=lambda level: "Source" if level == "src" else level,
+        on_change=on_draft_bible_level_book_change,
+    )
 
     # --- Book ---
     books = db_repo.get_books_for_language(db_path, st.session_state.draft_language)
@@ -100,6 +106,7 @@ with st.sidebar:
         book_ids,
         key="draft_book_id",
         format_func=lambda i: book_id_to_label.get(i, str(i)),
+        on_change=on_draft_book_change,
     )
 
     # --- Chapter ---
