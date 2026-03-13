@@ -38,7 +38,7 @@ german_text = """
 2. Wählen Sie eine **Bibel/Übersetzung**.
 3. Wählen Sie ein **Niveau** (A1, A2, B1, B2 oder Quelle).
 4. Wählen Sie ein **Buch** und ein **Kapitel**.
-5. Klicken Sie auf **Load**, um den ausgewählten Kapitelinhalt anzuzeigen.
+5. Klicken Sie auf **Laden**, um den ausgewählten Kapitelinhalt anzuzeigen.
 
 ### Hauptinhalte und Funktionen
 - **Graded Text**: Der Kapiteltext ist an das gewählte Niveau angepasst.
@@ -65,7 +65,7 @@ spanish_text = """
 2. Elija una **Biblia/Traducción**.
 3. Seleccione un **Nivel** (A1, A2, B1, B2 o Fuente).
 4. Seleccione un **Libro** y un **Capítulo**.
-5. Haga clic en **Load** para mostrar el contenido del capítulo seleccionado.
+5. Haga clic en **Cargar** para mostrar el contenido del capítulo seleccionado.
 
 ### Artefactos principales y funciones
 - **Graded Text**: El texto del capítulo está adaptado al nivel seleccionado.
