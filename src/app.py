@@ -137,6 +137,8 @@ with st.sidebar:
 
     st.divider()
 
+    st.link_button("Instructions 🤔", "./Instructions")
+
     # Reference section (placeholder links for now)
     st.subheader(t(st.session_state, "reference"))
     if st.session_state.active_language == "de":
