@@ -117,7 +117,7 @@ def get_available_chapters(
     Uses graded_chapter_meta for graded levels; uses verses for Source if needed.
     """
     with connect(db_path) as conn:
-        if level == "Source":
+        if level in {"Source", "src"}:
             rows = conn.execute(
                 """
                 SELECT DISTINCT chapter
@@ -177,7 +177,7 @@ def get_verses(
     - For graded levels: uses graded_verses.graded_text + optional verse_notes_json
     """
     with connect(db_path) as conn:
-        if level == "Source":
+        if level in {"Source", "src"}:
             rows = conn.execute(
                 """
                 SELECT verse, graded_text AS text 
