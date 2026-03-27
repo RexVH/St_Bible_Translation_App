@@ -74,6 +74,7 @@ def _ensure_defaults():
     # --- Active defaults ---
     st.session_state.setdefault("active_language", st.session_state.draft_language)
     st.session_state.setdefault("active_translation_label", st.session_state.draft_translation_label)
+    st.session_state.setdefault("active_db_path", st.session_state.db_path)
     st.session_state.setdefault("active_bible_id", st.session_state.draft_bible_id)
     st.session_state.setdefault("active_level", st.session_state.draft_level)
     st.session_state.setdefault("active_book_id", st.session_state.draft_book_id)
@@ -137,6 +138,7 @@ def init_state():
     # Active starts from draft
     st.session_state.active_language = st.session_state.draft_language
     st.session_state.active_translation_label = st.session_state.draft_translation_label
+    st.session_state.active_db_path = st.session_state.db_path
     st.session_state.active_bible_id = st.session_state.draft_bible_id
     st.session_state.active_level = st.session_state.draft_level
     st.session_state.active_book_id = st.session_state.draft_book_id
@@ -244,6 +246,8 @@ def on_draft_book_change():
 
 def apply_load():
     st.session_state.active_language = st.session_state.draft_language
+    st.session_state.active_translation_label = st.session_state.draft_translation_label
+    st.session_state.active_db_path = st.session_state.db_path
     st.session_state.active_bible_id = st.session_state.draft_bible_id
     st.session_state.active_level = st.session_state.draft_level
     st.session_state.active_book_id = st.session_state.draft_book_id
@@ -254,7 +258,7 @@ def apply_load():
 
 
 def go_next_chapter():
-    db_path = st.session_state.db_path
+    db_path = st.session_state.active_db_path
     bible_id = st.session_state.active_bible_id
     level = st.session_state.active_level
     book_id = st.session_state.active_book_id
@@ -280,7 +284,7 @@ def go_next_chapter():
 
 
 def go_prev_chapter():
-    db_path = st.session_state.db_path
+    db_path = st.session_state.active_db_path
     bible_id = st.session_state.active_bible_id
     level = st.session_state.active_level
     book_id = st.session_state.active_book_id
@@ -305,7 +309,7 @@ def go_prev_chapter():
 
 
 def on_active_book_change():
-    db_path = st.session_state.db_path
+    db_path = st.session_state.active_db_path
     bible_id = st.session_state.active_bible_id
     level = st.session_state.active_level
     book_id = st.session_state.active_book_id

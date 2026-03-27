@@ -129,7 +129,6 @@ with st.sidebar:
         t(st.session_state, "chapter"),
         chapters,
         key="draft_chapter",
-        on_change=apply_load,
     )
 
     if st.button(t(st.session_state, "load"), key="load_btn"):
@@ -151,7 +150,7 @@ with st.sidebar:
     st.link_button(t(st.session_state, "contact_dev"), "mailto:rex@ninefourecho.com")
 
 # --- MAIN ---
-db_path = st.session_state.db_path
+db_path = st.session_state.active_db_path
 
 # Resolve display names from DB (localized where applicable)
 if st.session_state.active_bible_id is None:
