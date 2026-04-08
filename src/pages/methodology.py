@@ -443,17 +443,13 @@ Despite promising results, several limitations remain.
 
 The project demonstrates **viability**, not completion.
 
-That is the honest and correct framing.
-
 ---
 
 ## Conclusion
 
 This project demonstrates that modern generative AI systems can be orchestrated into a coherent pipeline that transforms difficult source texts into structured learning environments.
 
-Its central contribution is not merely simplification, nor merely multimodal generation, nor merely app development.
-
-Its contribution is the integration of these elements into one framework:
+Its central contribution is not merely simplification, nor merely multimodal generation, nor merely app development. Its contribution is the integration of these elements into one framework:
 
 ## **Semantic Scaffolding**
 
@@ -477,7 +473,7 @@ def image_or_placeholder(title: str, path: str | None = None, caption: str | Non
         st.image(path, width="stretch", caption=caption or title)
     else:
         st.info(
-            f"{title}: add an image path here later with st.image(...)."
+            f"{title}: No image to display."
         )
 
 
@@ -502,11 +498,6 @@ hero1, hero2, hero3 = st.columns(3)
 hero1.metric("Primary Idea", "Semantic scaffolding")
 hero2.metric("Core Modes", "Text · Audio · Image · Quiz")
 hero3.metric("Primary UI", "Streamlit")
-
-st.info(
-    "This page is a Streamlit-native methodology view. It keeps the full paper available, "
-    "but also breaks the content into sections that are easier to browse in-app."
-)
 
 overview_tab, paper_tab, pipeline_tab, figures_tab, appendix_tab = st.tabs(
     ["Overview", "Paper", "Pipeline", "Figures", "Appendices"]
